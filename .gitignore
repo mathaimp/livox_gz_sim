@@ -1,0 +1,13 @@
+**/build/
+**/install/
+**log/
+**/__pycache__/**
+**/models/**
+**/results/**
+**/logs/**
+**/checkpoints/**
+# direnv
+.direnv
+# pixi environments
+.pixi/*
+!.pixi/config.toml
