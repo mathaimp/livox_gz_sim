@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!-- demo: a Mid-360 on top of a 1 m pole fixed to the world -->
+<robot name="mid360_demo" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find livox_gz_sim)/urdf/mid360.xacro"/>
+
+  <link name="world"/>
+  <joint name="pole_joint" type="fixed">
+    <parent link="world"/>
+    <child link="pole"/>
+  </joint>
+  <link name="pole">
+    <visual>
+      <origin xyz="0 0 0.5"/>
+      <geometry><cylinder radius="0.02" length="1.0"/></geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.5"/>
+      <geometry><cylinder radius="0.02" length="1.0"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0.5"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.083" iyy="0.083" izz="0.0002" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <xacro:mid360 parent="pole">
+    <origin xyz="0 0 1.0"/>
+  </xacro:mid360>
+</robot>

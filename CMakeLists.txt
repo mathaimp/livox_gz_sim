@@ -15,6 +15,8 @@ find_package(gz_sim_vendor REQUIRED)
 find_package(gz_transport_vendor REQUIRED)
 find_package(gz_msgs_vendor REQUIRED)
 
+install(DIRECTORY launch meshes rviz urdf worlds DESTINATION share/${PROJECT_NAME})
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

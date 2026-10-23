@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!-- 12 x 8 m room with a few objects in the Mid-360's view (-7..52 deg from 1 m up) -->
+<sdf version="1.9">
+  <world name="demo">
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <scene>
+      <ambient>0.6 0.6 0.6 1</ambient>
+      <background>0.7 0.8 0.9 1</background>
+    </scene>
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+
+    <model name="ground">
+      <static>true</static>
+      <link name="link">
+        <collision name="c"><geometry><plane><normal>0 0 1</normal><size>40 40</size></plane></geometry></collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>40 40</size></plane></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="walls">
+      <static>true</static>
+      <link name="link">
+        <collision name="n"><pose>0 4 1.25 0 0 0</pose><geometry><box><size>12 0.2 2.5</size></box></geometry></collision>
+        <visual name="n"><pose>0 4 1.25 0 0 0</pose><geometry><box><size>12 0.2 2.5</size></box></geometry></visual>
+        <collision name="s"><pose>0 -4 1.25 0 0 0</pose><geometry><box><size>12 0.2 2.5</size></box></geometry></collision>
+        <visual name="s"><pose>0 -4 1.25 0 0 0</pose><geometry><box><size>12 0.2 2.5</size></box></geometry></visual>
+        <collision name="e"><pose>6 0 1.25 0 0 0</pose><geometry><box><size>0.2 8 2.5</size></box></geometry></collision>
+        <visual name="e"><pose>6 0 1.25 0 0 0</pose><geometry><box><size>0.2 8 2.5</size></box></geometry></visual>
+        <collision name="w"><pose>-6 0 1.25 0 0 0</pose><geometry><box><size>0.2 8 2.5</size></box></geometry></collision>
+        <visual name="w"><pose>-6 0 1.25 0 0 0</pose><geometry><box><size>0.2 8 2.5</size></box></geometry></visual>
+      </link>
+    </model>
+
+    <model name="box">
+      <static>true</static>
+      <pose>2.5 0.8 0.6 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.4 0.8 1.2</size></box></geometry></collision>
+        <visual name="v">
+          <geometry><box><size>0.4 0.8 1.2</size></box></geometry>
+          <material><ambient>0.8 0.3 0.2 1</ambient><diffuse>0.8 0.3 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="cylinder">
+      <static>true</static>
+      <pose>-2 -1.5 0.75 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.3</radius><length>1.5</length></cylinder></geometry></collision>
+        <visual name="v">
+          <geometry><cylinder><radius>0.3</radius><length>1.5</length></cylinder></geometry>
+          <material><ambient>0.2 0.5 0.8 1</ambient><diffuse>0.2 0.5 0.8 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sphere">
+      <static>true</static>
+      <pose>-1 2.5 1.8 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><sphere><radius>0.4</radius></sphere></geometry></collision>
+        <visual name="v">
+          <geometry><sphere><radius>0.4</radius></sphere></geometry>
+          <material><ambient>0.3 0.7 0.3 1</ambient><diffuse>0.3 0.7 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>
