@@ -13,6 +13,7 @@
     <visual>
       <origin xyz="0 0 0.5"/>
       <geometry><cylinder radius="0.02" length="1.0"/></geometry>
+      <material name="pole_grey"><color rgba="0.6 0.6 0.62 1"/></material>
     </visual>
     <collision>
       <origin xyz="0 0 0.5"/>
