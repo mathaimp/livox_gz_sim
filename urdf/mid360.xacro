@@ -18,13 +18,15 @@
      real sensor. It publishes as livox_ros_driver2 does, on ${topic} in ${name}_frame:
        xfer_format 0 = sensor_msgs/PointCloud2 (x y z intensity tag line timestamp)
                    1 = livox_ros_driver2/CustomMsg (as for FAST-LIO)
+     Reflectivity of a surface: <laser_retro> in its Gazebo visual, on Livox's scale (0-150
+     diffuse %, 151-255 retroreflective); 100 where unset.
      The built-in IMU, also as the driver: sensor_msgs/Imu on ${imu_topic} at 200 Hz,
      in ${name}_frame (axes aligned with it), acceleration in g. It sits at
      ${name}_imu_link, (11.0, 23.29, -44.12) mm from the point cloud origin (manual),
      so FAST-LIO's extrinsic_T is [-0.011, -0.02329, 0.04412], extrinsic_R identity.
      Needs the world's gz-sim-imu-system. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 imu_topic:=livox/imu">
+  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 imu_topic:=livox/imu downsample:=1">
     <joint name="${name}_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="${name}_base_link"/>
@@ -96,6 +98,11 @@
           <xfer_format>${xfer_format}</xfer_format>
           <!-- datasheet angular random error (1 sigma) -->
           <angular_noise>0.15</angular_noise>
+          <!-- every n-th pattern ray, to save CPU (n = 1: the real 200k points/s) -->
+          <downsample>${downsample}</downsample>
+          <!-- reflectivity (Livox 0-255) comes from the hit visual's <laser_retro>; this is for
+               surfaces without one -->
+          <default_reflectivity>100</default_reflectivity>
         </plugin>
       </sensor>
     </gazebo>

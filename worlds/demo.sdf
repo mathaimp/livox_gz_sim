@@ -54,6 +54,8 @@
         <visual name="v">
           <geometry><box><size>0.4 0.8 1.2</size></box></geometry>
           <material><ambient>0.8 0.3 0.2 1</ambient><diffuse>0.8 0.3 0.2 1</diffuse></material>
+          <!-- Livox reflectivity: retroreflective -->
+          <laser_retro>200</laser_retro>
         </visual>
       </link>
     </model>
@@ -66,6 +68,8 @@
         <visual name="v">
           <geometry><cylinder><radius>0.3</radius><length>1.5</length></cylinder></geometry>
           <material><ambient>0.2 0.5 0.8 1</ambient><diffuse>0.2 0.5 0.8 1</diffuse></material>
+          <!-- Livox reflectivity: dark, 15 % -->
+          <laser_retro>15</laser_retro>
         </visual>
       </link>
     </model>
@@ -78,6 +82,8 @@
         <visual name="v">
           <geometry><sphere><radius>0.4</radius></sphere></geometry>
           <material><ambient>0.3 0.7 0.3 1</ambient><diffuse>0.3 0.7 0.3 1</diffuse></material>
+          <!-- Livox reflectivity: 60 % -->
+          <laser_retro>60</laser_retro>
         </visual>
       </link>
     </model>

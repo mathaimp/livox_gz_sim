@@ -19,7 +19,11 @@
 //     <xfer_format>0</xfer_format>       as the driver: 0 PointCloud2, 1 CustomMsg
 //     <angular_noise>0.15</angular_noise> deg, 1 sigma per axis: each point is reported
 //                                        along its ray tilted by this (Mid-360: 0.15)
+//     <downsample>1</downsample>         keep every n-th ray of a frame (as Livox's plugin)
+//     <default_reflectivity>100</default_reflectivity>  for surfaces without <laser_retro>
 //   </plugin>
+// Reflectivity is the hit visual's <laser_retro>, which the gpu_lidar reports as
+// intensity, on Livox's scale: 0-150 diffuse reflectivity in %, 151-255 retroreflective.
 // Range limits and range noise come from the gpu_lidar itself.
 
 #include <algorithm>
@@ -81,6 +85,8 @@ public:
     frame_id_ = get("frame_id", std::string("livox_frame"));
     xfer_format_ = get("xfer_format", 0);
     angular_noise_ = get("angular_noise", 0.0) * M_PI / 180.0;
+    downsample_ = std::max(1, get("downsample", 1));
+    default_reflectivity_ = std::clamp(get("default_reflectivity", 100.0), 0.0, 255.0);
     std::string topic = get("topic", std::string("livox/lidar"));
 
     // the gpu_lidar's own gz topic carries the dense image
@@ -117,7 +123,8 @@ public:
     }
     gzmsg << "Livox lidar [" << name << "]: " << rays_.size() << " pattern rays from " << pattern
           << ", " << samples_ << " per frame, on ROS [" << topic << "] ("
-          << (xfer_format_ == 1 ? "CustomMsg" : "PointCloud2") << ")\n";
+          << (xfer_format_ == 1 ? "CustomMsg" : "PointCloud2") << ")"
+          << (downsample_ > 1 ? ", downsample " + std::to_string(downsample_) : "") << "\n";
   }
 
 private:
@@ -158,19 +165,21 @@ private:
     const double e0 = scan.vertical_angle_min(), de = (scan.vertical_angle_max() - e0) / (h - 1);
     const double rmin = scan.range_min(), rmax = scan.range_max();
     const auto &ranges = scan.ranges();
+    const bool has_intensity = scan.intensities_size() >= w * h;
     const int64_t base_ns = int64_t(scan.header().stamp().sec()) * 1000000000 + scan.header().stamp().nsec();
 
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<LivoxPoint> pts;
-    pts.reserve(samples_);
-    for (int k = 0; k < samples_; ++k) {
+    pts.reserve(samples_ / downsample_ + 1);
+    for (int k = 0; k < samples_; k += downsample_) {
       const size_t i = (next_ + k) % rays_.size();
       const PatternRay &r = rays_[i];
       const int col = static_cast<int>(std::lround((r.azimuth - a0) / da));
       const int row = static_cast<int>(std::lround((r.elevation - e0) / de));
       if (col < 0 || col >= w || row < 0 || row >= h)
         continue;  // outside the rendered image (should not happen for a matching gpu_lidar)
-      const double d = ranges[row * w + col];
+      const int px = row * w + col;
+      const double d = ranges[px];
       if (!std::isfinite(d) || d < rmin || d > rmax)
         continue;  // no return: the driver publishes nothing for it either
       LivoxPoint p;
@@ -186,7 +195,9 @@ private:
         p.y = d * r.cy;
         p.z = d * r.sz;
       }
-      p.reflectivity = 100.0f;  // no material reflectivity in the sim
+      const double retro = has_intensity ? scan.intensities(px) : 0.0;
+      // the render target returns the retro value slightly off (199.98 for 200): round
+      p.reflectivity = static_cast<float>(std::round(retro > 0 ? std::min(retro, 255.0) : default_reflectivity_));
       p.tag = 0;                // "normal point"
       p.line = static_cast<uint8_t>(i % line_count_);
       p.timestamp = static_cast<double>(base_ns) + k * period_ns_;
@@ -259,8 +270,8 @@ private:
 
   std::vector<PatternRay> rays_;
   size_t next_ = 0;
-  int samples_ = 20000, line_count_ = 4, xfer_format_ = 0;
-  double period_ns_ = 5000.0, angular_noise_ = 0.0;
+  int samples_ = 20000, line_count_ = 4, xfer_format_ = 0, downsample_ = 1;
+  double period_ns_ = 5000.0, angular_noise_ = 0.0, default_reflectivity_ = 100.0;
   std::mt19937 rng_{std::random_device{}()};
   std::normal_distribution<double> gauss_{0.0, 1.0};
   std::string frame_id_;
