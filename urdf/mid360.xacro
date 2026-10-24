@@ -15,7 +15,9 @@
      Gazebo: a dense gpu_lidar (0.2 deg grid) renders a range image and the
      livox_gz_sim::LivoxLidar plugin samples it along Livox's recorded Mid-360
      pattern, 20k rays per 10 Hz frame, so coverage builds up over frames as on the
-     real sensor. It publishes as livox_ros_driver2 does, on ${topic} in ${name}_frame:
+     real sensor. slices:=n renders n images per frame and stamps each point with its
+     image's time (1: a snapshot, offsets 0; 5: offsets 0, 20, ..., 80 ms, motion skew as on
+     the real sensor, 5x the rendering). It publishes as livox_ros_driver2 does, on ${topic} in ${name}_frame:
        xfer_format 0 = sensor_msgs/PointCloud2 (x y z intensity tag line timestamp)
                    1 = livox_ros_driver2/CustomMsg (as for FAST-LIO)
      Reflectivity of a surface: <laser_retro> in its Gazebo visual, on Livox's scale (0-150
@@ -26,7 +28,7 @@
      so FAST-LIO's extrinsic_T is [-0.011, -0.02329, 0.04412], extrinsic_R identity.
      Needs the world's gz-sim-imu-system. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 imu_topic:=livox/imu downsample:=1">
+  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 imu_topic:=livox/imu downsample:=1 slices:=1">
     <joint name="${name}_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="${name}_base_link"/>
@@ -56,7 +58,8 @@
 
     <gazebo reference="${name}_frame">
       <sensor name="${name}" type="gpu_lidar">
-        <update_rate>10</update_rate>
+        <!-- 10 Hz frames, each from ${slices} rendered image(s) -->
+        <update_rate>${10 * slices}</update_rate>
         <always_on>true</always_on>
         <visualize>false</visualize>
         <!-- the dense image, gz only; the plugin publishes ${topic} -->
@@ -91,7 +94,10 @@
         <plugin filename="livox_gz_sim" name="livox_gz_sim::LivoxLidar">
           <pattern>mid360.csv</pattern>
           <samples>20000</samples>
-          <point_rate>200000</point_rate>
+          <!-- 1: each frame is one snapshot, all point offsets 0 (Livox's ROS 1 plugin);
+               n: n images per frame, point offsets 0, 100/n, ... ms, so motion during a frame
+               skews the cloud as on the real sensor; n x the rendering cost -->
+          <slices>${slices}</slices>
           <line_count>4</line_count>
           <topic>${topic}</topic>
           <frame_id>${name}_frame</frame_id>

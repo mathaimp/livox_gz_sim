@@ -6,14 +6,22 @@
 // CSV: index, azimuth deg, zenith deg); every frame takes the next `samples` of
 // them, so coverage builds up over consecutive frames as on the real sensor.
 // Instead of casting those rays one by one, the gpu_lidar this plugin is attached
-// to renders a dense range image each frame, and each pattern ray reads the
-// nearest pixel (the image's angular step bounds the direction error).
+// to renders a dense range image, and each pattern ray reads the nearest pixel
+// (the image's angular step bounds the direction error).
+//
+// Timing: a frame is `slices` consecutive images (the gpu_lidar renders at
+// slices x frame rate), each supplying the next 1/slices of the frame's rays, and
+// every point is stamped with the time of the image it came from. With 1 slice a
+// frame is one snapshot with all point offsets 0, as Livox's plugin (no motion
+// within a frame); with 5 at 10 Hz the offsets are 0, 20, ..., 80 ms, so motion
+// during the frame skews the cloud as on the real sensor, and deskewing it by the
+// point times (FAST-LIO) is exact. The frame is published once its last slice is in.
 //
 // Attach inside a gpu_lidar <sensor> (see urdf/mid360.xacro):
 //   <plugin filename="livox_gz_sim" name="livox_gz_sim::LivoxLidar">
 //     <pattern>mid360.csv</pattern>      relative to share/livox_gz_sim/scan_patterns
-//     <samples>20000</samples>           rays per frame (point_rate / update_rate)
-//     <point_rate>200000</point_rate>    per-point time step = 1 / point_rate
+//     <samples>20000</samples>           rays per frame (point rate / frame rate)
+//     <slices>1</slices>                 images per frame; gpu_lidar update_rate = slices x frame rate
 //     <line_count>4</line_count>         laser lines (line = pattern index % line_count)
 //     <topic>livox/lidar</topic>  <frame_id>livox_frame</frame_id>
 //     <xfer_format>0</xfer_format>       as the driver: 0 PointCloud2, 1 CustomMsg
@@ -80,7 +88,7 @@ public:
     };
     std::string pattern = get("pattern", std::string("mid360.csv"));
     samples_ = std::max(1, get("samples", 20000));
-    period_ns_ = 1e9 / get("point_rate", 200000.0);
+    slices_ = std::max(1, get("slices", 1));
     line_count_ = std::max(1, get("line_count", 4));
     frame_id_ = get("frame_id", std::string("livox_frame"));
     xfer_format_ = get("xfer_format", 0);
@@ -122,7 +130,7 @@ public:
       return;
     }
     gzmsg << "Livox lidar [" << name << "]: " << rays_.size() << " pattern rays from " << pattern
-          << ", " << samples_ << " per frame, on ROS [" << topic << "] ("
+          << ", " << samples_ << " per frame in " << slices_ << " slice(s), on ROS [" << topic << "] ("
           << (xfer_format_ == 1 ? "CustomMsg" : "PointCloud2") << ")"
           << (downsample_ > 1 ? ", downsample " + std::to_string(downsample_) : "") << "\n";
   }
@@ -166,12 +174,18 @@ private:
     const double rmin = scan.range_min(), rmax = scan.range_max();
     const auto &ranges = scan.ranges();
     const bool has_intensity = scan.intensities_size() >= w * h;
-    const int64_t base_ns = int64_t(scan.header().stamp().sec()) * 1000000000 + scan.header().stamp().nsec();
+    const int64_t stamp_ns = int64_t(scan.header().stamp().sec()) * 1000000000 + scan.header().stamp().nsec();
 
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<LivoxPoint> pts;
-    pts.reserve(samples_ / downsample_ + 1);
-    for (int k = 0; k < samples_; k += downsample_) {
+    if (slice_ == 0) {
+      frame_.clear();
+      frame_.reserve(samples_ / downsample_ + 1);
+      frame_ns_ = stamp_ns;
+    }
+    // this image's share of the frame's rays, k0..k1; downsample keeps every n-th of the frame
+    const int k0 = static_cast<int>(int64_t(samples_) * slice_ / slices_);
+    const int k1 = static_cast<int>(int64_t(samples_) * (slice_ + 1) / slices_);
+    for (int k = (k0 + downsample_ - 1) / downsample_ * downsample_; k < k1; k += downsample_) {
       const size_t i = (next_ + k) % rays_.size();
       const PatternRay &r = rays_[i];
       const int col = static_cast<int>(std::lround((r.azimuth - a0) / da));
@@ -200,15 +214,18 @@ private:
       p.reflectivity = static_cast<float>(std::round(retro > 0 ? std::min(retro, 255.0) : default_reflectivity_));
       p.tag = 0;                // "normal point"
       p.line = static_cast<uint8_t>(i % line_count_);
-      p.timestamp = static_cast<double>(base_ns) + k * period_ns_;
-      pts.push_back(p);
+      p.timestamp = static_cast<double>(stamp_ns);  // when this image was taken
+      frame_.push_back(p);
     }
+    if (++slice_ < slices_)
+      return;
+    slice_ = 0;
     next_ = (next_ + samples_) % rays_.size();
 
     if (xfer_format_ == 1)
-      PublishCustom(pts, base_ns);
+      PublishCustom(frame_, frame_ns_);
     else
-      PublishCloud(pts, base_ns);
+      PublishCloud(frame_, frame_ns_);
   }
 
   // as Lddc::InitPointcloud2MsgHeader / FillPointsToPclMsg
@@ -270,8 +287,11 @@ private:
 
   std::vector<PatternRay> rays_;
   size_t next_ = 0;
+  std::vector<LivoxPoint> frame_;  // the frame being collected, slice_ of slices_ images in
+  int slice_ = 0, slices_ = 1;
+  int64_t frame_ns_ = 0;           // its first image's time: header stamp and CustomMsg timebase
   int samples_ = 20000, line_count_ = 4, xfer_format_ = 0, downsample_ = 1;
-  double period_ns_ = 5000.0, angular_noise_ = 0.0, default_reflectivity_ = 100.0;
+  double angular_noise_ = 0.0, default_reflectivity_ = 100.0;
   std::mt19937 rng_{std::random_device{}()};
   std::normal_distribution<double> gauss_{0.0, 1.0};
   std::string frame_id_;
