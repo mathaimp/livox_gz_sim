@@ -1,10 +1,26 @@
 <?xml version="1.0"?>
-<!-- Livox Mid-360. Dimensions and the point cloud origin from the Mid-360 User
-     Manual (appendix drawing): 65 x 65 x 60 mm, 265 g, origin O 47 mm above the
-     bottom on the axis, +X on the logo side (the cable connector is on -X). -->
+<!-- Livox Mid-360 with its real (non-repetitive) scan pattern.
+
+       <xacro:include filename="$(find livox_gz_sim)/urdf/mid360.xacro"/>
+       <xacro:mid360 parent="base_link">
+         <origin xyz="..." rpy="..."/>
+       </xacro:mid360>
+
+     The origin places the centre of the sensor's bottom face. Dimensions and the
+     point cloud origin from the Mid-360 User Manual (appendix drawing): 65 x 65 x 60
+     mm, 265 g, origin O 47 mm above the bottom on the axis, +X on the logo side
+     (the cable connector is on -X). FOV 360 deg x -7..52 deg, 0.1-40 m (10 %
+     reflectivity), 200k points/s at 10 Hz.
+
+     Gazebo: a dense gpu_lidar (0.2 deg grid) renders a range image and the
+     livox_gz_sim::LivoxLidar plugin samples it along Livox's recorded Mid-360
+     pattern, 20k rays per 10 Hz frame, so coverage builds up over frames as on the
+     real sensor. It publishes as livox_ros_driver2 does, on ${topic} in ${name}_frame:
+       xfer_format 0 = sensor_msgs/PointCloud2 (x y z intensity tag line timestamp)
+                   1 = livox_ros_driver2/CustomMsg (as for FAST-LIO)
+     The built-in IMU (livox/imu) is not simulated. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar">
-    <!-- origin: the centre of the sensor's bottom face -->
+  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0">
     <joint name="${name}_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="${name}_base_link"/>
@@ -32,40 +48,49 @@
     </joint>
     <link name="${name}_frame"/>
 
-    <!-- a plain grid lidar over the Mid-360's field of view for now:
-         360 deg x -7..52 deg, 0.1-40 m, 10 Hz, ~20k points per frame
-         (the real sensor gives 200k points/s) -->
     <gazebo reference="${name}_frame">
       <sensor name="${name}" type="gpu_lidar">
-        <topic>${topic}</topic>
-        <gz_frame_id>${name}_frame</gz_frame_id>
         <update_rate>10</update_rate>
         <always_on>true</always_on>
         <visualize>false</visualize>
+        <!-- the dense image, gz only; the plugin publishes ${topic} -->
+        <topic>${name}/dense_scan</topic>
+        <gz_frame_id>${name}_frame</gz_frame_id>
         <lidar>
           <scan>
             <horizontal>
-              <samples>360</samples>
-              <min_angle>-3.14159</min_angle>
-              <max_angle>3.14159</max_angle>
+              <samples>1801</samples>
+              <min_angle>${-pi}</min_angle>
+              <max_angle>${pi}</max_angle>
             </horizontal>
+            <!-- covers the pattern's -7.2..52.2 deg -->
             <vertical>
-              <samples>60</samples>
-              <min_angle>-0.12217</min_angle>
-              <max_angle>0.90757</max_angle>
+              <samples>300</samples>
+              <min_angle>${radians(-7.4)}</min_angle>
+              <max_angle>${radians(52.4)}</max_angle>
             </vertical>
           </scan>
           <range>
             <min>0.1</min>
             <max>40.0</max>
-            <resolution>0.002</resolution>
+            <resolution>0.001</resolution>
           </range>
+          <!-- datasheet range precision 2 cm (1 sigma) at 10 m -->
           <noise>
             <type>gaussian</type>
-            <mean>0</mean>
-            <stddev>0.01</stddev>
+            <mean>0.0</mean>
+            <stddev>0.02</stddev>
           </noise>
         </lidar>
+        <plugin filename="livox_gz_sim" name="livox_gz_sim::LivoxLidar">
+          <pattern>mid360.csv</pattern>
+          <samples>20000</samples>
+          <point_rate>200000</point_rate>
+          <line_count>4</line_count>
+          <topic>${topic}</topic>
+          <frame_id>${name}_frame</frame_id>
+          <xfer_format>${xfer_format}</xfer_format>
+        </plugin>
       </sensor>
     </gazebo>
   </xacro:macro>

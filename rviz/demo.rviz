@@ -20,10 +20,10 @@ Visualization Manager:
       Enabled: true
       Topic:
         Value: /livox/lidar
-        Reliability Policy: Best Effort
+        Reliability Policy: Reliable
       Style: Points
       Size (Pixels): 2
-      Decay Time: 0
+      Decay Time: 1
       Color Transformer: AxisColor
       Axis: Z
   Global Options:

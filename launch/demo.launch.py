@@ -1,7 +1,9 @@
 """A Mid-360 on a pole in a small room: Gazebo, robot_state_publisher, the
-point cloud bridged to ROS, and rviz.
+Livox plugin publishing /livox/lidar, and rviz.
 
-    ros2 launch livox_gz_sim demo.launch.py [gui:=false] [rviz:=false]
+    ros2 launch livox_gz_sim demo.launch.py [gui:=false] [rviz:=false] [xfer_format:=1]
+
+xfer_format as livox_ros_driver2: 0 PointCloud2, 1 CustomMsg (rviz cannot show it)
 """
 import os
 
@@ -21,13 +23,15 @@ def generate_launch_description():
     gui = LaunchConfiguration("gui")
 
     robot_description = ParameterValue(
-        Command(["xacro ", os.path.join(share, "urdf", "demo.urdf.xacro")]),
+        Command(["xacro ", os.path.join(share, "urdf", "demo.urdf.xacro"),
+                 " xfer_format:=", LaunchConfiguration("xfer_format")]),
         value_type=str,
     )
 
     return LaunchDescription([
         DeclareLaunchArgument("gui", default_value="true"),
         DeclareLaunchArgument("rviz", default_value="true"),
+        DeclareLaunchArgument("xfer_format", default_value="0"),
         # the server resolves package://livox_gz_sim/meshes/... through this
         AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.dirname(share)),
         IncludeLaunchDescription(
@@ -53,9 +57,7 @@ def generate_launch_description():
             executable="parameter_bridge",
             arguments=[
                 "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-                "/livox/lidar/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked",
             ],
-            remappings=[("/livox/lidar/points", "/livox/lidar")],
             output="screen",
         ),
         Node(
