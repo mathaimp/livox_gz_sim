@@ -18,9 +18,13 @@
      real sensor. It publishes as livox_ros_driver2 does, on ${topic} in ${name}_frame:
        xfer_format 0 = sensor_msgs/PointCloud2 (x y z intensity tag line timestamp)
                    1 = livox_ros_driver2/CustomMsg (as for FAST-LIO)
-     The built-in IMU (livox/imu) is not simulated. -->
+     The built-in IMU, also as the driver: sensor_msgs/Imu on ${imu_topic} at 200 Hz,
+     in ${name}_frame (axes aligned with it), acceleration in g. It sits at
+     ${name}_imu_link, (11.0, 23.29, -44.12) mm from the point cloud origin (manual),
+     so FAST-LIO's extrinsic_T is [-0.011, -0.02329, 0.04412], extrinsic_R identity.
+     Needs the world's gz-sim-imu-system. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0">
+  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 imu_topic:=livox/imu">
     <joint name="${name}_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="${name}_base_link"/>
@@ -90,6 +94,43 @@
           <topic>${topic}</topic>
           <frame_id>${name}_frame</frame_id>
           <xfer_format>${xfer_format}</xfer_format>
+          <!-- datasheet angular random error (1 sigma) -->
+          <angular_noise>0.15</angular_noise>
+        </plugin>
+      </sensor>
+    </gazebo>
+
+    <joint name="${name}_imu_joint" type="fixed">
+      <parent link="${name}_frame"/>
+      <child link="${name}_imu_link"/>
+      <origin xyz="0.011 0.02329 -0.04412"/>
+    </joint>
+    <link name="${name}_imu_link"/>
+
+    <gazebo reference="${name}_imu_link">
+      <sensor name="${name}_imu" type="imu">
+        <update_rate>200</update_rate>
+        <always_on>true</always_on>
+        <!-- gz only; the plugin publishes ${imu_topic} -->
+        <topic>${name}/imu_raw</topic>
+        <!-- white noise of the ICM-40609 (TDK datasheet DS-000330 v1.2, tables 1 and 2):
+             RMS noise at 100 Hz bandwidth (the Nyquist band of the 200 Hz output),
+             gyro 0.045 deg/s = 7.9e-4 rad/s, accel 1.00 mg = 9.8e-3 m/s^2. No bias. -->
+        <imu>
+          <angular_velocity>
+            <x><noise type="gaussian"><mean>0</mean><stddev>7.9e-4</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>7.9e-4</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>7.9e-4</stddev></noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian"><mean>0</mean><stddev>9.8e-3</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>9.8e-3</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>9.8e-3</stddev></noise></z>
+          </linear_acceleration>
+        </imu>
+        <plugin filename="livox_gz_sim" name="livox_gz_sim::LivoxImu">
+          <topic>${imu_topic}</topic>
+          <frame_id>${name}_frame</frame_id>
         </plugin>
       </sensor>
     </gazebo>

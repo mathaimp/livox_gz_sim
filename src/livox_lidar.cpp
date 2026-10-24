@@ -17,8 +17,10 @@
 //     <line_count>4</line_count>         laser lines (line = pattern index % line_count)
 //     <topic>livox/lidar</topic>  <frame_id>livox_frame</frame_id>
 //     <xfer_format>0</xfer_format>       as the driver: 0 PointCloud2, 1 CustomMsg
+//     <angular_noise>0.15</angular_noise> deg, 1 sigma per axis: each point is reported
+//                                        along its ray tilted by this (Mid-360: 0.15)
 //   </plugin>
-// Range limits and noise come from the gpu_lidar itself.
+// Range limits and range noise come from the gpu_lidar itself.
 
 #include <algorithm>
 #include <cmath>
@@ -28,6 +30,7 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -77,6 +80,7 @@ public:
     line_count_ = std::max(1, get("line_count", 4));
     frame_id_ = get("frame_id", std::string("livox_frame"));
     xfer_format_ = get("xfer_format", 0);
+    angular_noise_ = get("angular_noise", 0.0) * M_PI / 180.0;
     std::string topic = get("topic", std::string("livox/lidar"));
 
     // the gpu_lidar's own gz topic carries the dense image
@@ -170,9 +174,18 @@ private:
       if (!std::isfinite(d) || d < rmin || d > rmax)
         continue;  // no return: the driver publishes nothing for it either
       LivoxPoint p;
-      p.x = d * r.cx;
-      p.y = d * r.cy;
-      p.z = d * r.sz;
+      if (angular_noise_ > 0) {
+        // horizontal error as a true angle: azimuth step / cos(elevation)
+        const double el = r.elevation + angular_noise_ * gauss_(rng_);
+        const double az = r.azimuth + angular_noise_ * gauss_(rng_) / std::max(std::cos(r.elevation), 0.1);
+        p.x = d * std::cos(el) * std::cos(az);
+        p.y = d * std::cos(el) * std::sin(az);
+        p.z = d * std::sin(el);
+      } else {
+        p.x = d * r.cx;
+        p.y = d * r.cy;
+        p.z = d * r.sz;
+      }
       p.reflectivity = 100.0f;  // no material reflectivity in the sim
       p.tag = 0;                // "normal point"
       p.line = static_cast<uint8_t>(i % line_count_);
@@ -247,7 +260,9 @@ private:
   std::vector<PatternRay> rays_;
   size_t next_ = 0;
   int samples_ = 20000, line_count_ = 4, xfer_format_ = 0;
-  double period_ns_ = 5000.0;
+  double period_ns_ = 5000.0, angular_noise_ = 0.0;
+  std::mt19937 rng_{std::random_device{}()};
+  std::normal_distribution<double> gauss_{0.0, 1.0};
   std::string frame_id_;
   std::mutex mutex_;
   rclcpp::Node::SharedPtr node_;

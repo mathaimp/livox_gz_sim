@@ -18,8 +18,8 @@ find_package(gz-sim8 REQUIRED)
 find_package(gz-transport13 REQUIRED)
 find_package(gz-msgs10 REQUIRED)
 
-# the Livox lidar Gazebo system; found by Gazebo through GZ_SIM_SYSTEM_PLUGIN_PATH (hooks/)
-add_library(${PROJECT_NAME} SHARED src/livox_lidar.cpp)
+# the Livox lidar and IMU Gazebo systems; found by Gazebo through GZ_SIM_SYSTEM_PLUGIN_PATH (hooks/)
+add_library(${PROJECT_NAME} SHARED src/livox_lidar.cpp src/livox_imu.cpp)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 target_link_libraries(${PROJECT_NAME}
   ament_index_cpp::ament_index_cpp
