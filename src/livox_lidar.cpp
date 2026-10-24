@@ -25,14 +25,22 @@
 //     <line_count>4</line_count>         laser lines (line = pattern index % line_count)
 //     <topic>livox/lidar</topic>  <frame_id>livox_frame</frame_id>
 //     <xfer_format>0</xfer_format>       as the driver: 0 PointCloud2, 1 CustomMsg
-//     <angular_noise>0.15</angular_noise> deg, 1 sigma per axis: each point is reported
-//                                        along its ray tilted by this (Mid-360: 0.15)
+//     <range_noise>0.02</range_noise>    m, 1 sigma, gaussian (Mid-360: 0.02 at 10 m)
+//     <angular_noise>0.15</angular_noise> deg, 1 sigma per axis, total (Mid-360: 0.15); see below
 //     <downsample>1</downsample>         keep every n-th ray of a frame (as Livox's plugin)
 //     <default_reflectivity>100</default_reflectivity>  for surfaces without <laser_retro>
 //   </plugin>
 // Reflectivity is the hit visual's <laser_retro>, which the gpu_lidar reports as
 // intensity, on Livox's scale: 0-150 diffuse reflectivity in %, 151-255 retroreflective.
-// Range limits and range noise come from the gpu_lidar itself.
+// Range limits come from the gpu_lidar. Give the gpu_lidar no <noise>: it would draw
+// it for every pixel of the dense image, the bulk of the sensor's cost, while the
+// plugin adds range noise only to the rays it uses.
+//
+// Angular error: reading the nearest pixel already misplaces a ray by up to half a
+// pixel, uniformly, i.e. step / sqrt(12) per axis. The plugin tilts each reported
+// ray by only the rest, sqrt(angular_noise^2 - step^2 / 12), so the total stays
+// angular_noise and a coarser (cheaper) dense image costs no accuracy as long as
+// step / sqrt(12) < angular_noise (0.5 deg for the Mid-360).
 
 #include <algorithm>
 #include <cmath>
@@ -92,6 +100,7 @@ public:
     line_count_ = std::max(1, get("line_count", 4));
     frame_id_ = get("frame_id", std::string("livox_frame"));
     xfer_format_ = get("xfer_format", 0);
+    range_noise_ = std::max(0.0, get("range_noise", 0.0));
     angular_noise_ = get("angular_noise", 0.0) * M_PI / 180.0;
     downsample_ = std::max(1, get("downsample", 1));
     default_reflectivity_ = std::clamp(get("default_reflectivity", 100.0), 0.0, 255.0);
@@ -176,6 +185,11 @@ private:
     const bool has_intensity = scan.intensities_size() >= w * h;
     const int64_t stamp_ns = int64_t(scan.header().stamp().sec()) * 1000000000 + scan.header().stamp().nsec();
 
+    // angular noise left to add on top of the pixel quantisation (see top); the
+    // horizontal pixel step as a true angle shrinks with cos(elevation)
+    const double var = angular_noise_ * angular_noise_;
+    const double el_sigma = std::sqrt(std::max(0.0, var - de * de / 12));
+
     std::lock_guard<std::mutex> lock(mutex_);
     if (slice_ == 0) {
       frame_.clear();
@@ -193,14 +207,18 @@ private:
       if (col < 0 || col >= w || row < 0 || row >= h)
         continue;  // outside the rendered image (should not happen for a matching gpu_lidar)
       const int px = row * w + col;
-      const double d = ranges[px];
+      double d = ranges[px];
       if (!std::isfinite(d) || d < rmin || d > rmax)
         continue;  // no return: the driver publishes nothing for it either
+      if (range_noise_ > 0)
+        d += range_noise_ * gauss_(rng_);
       LivoxPoint p;
       if (angular_noise_ > 0) {
         // horizontal error as a true angle: azimuth step / cos(elevation)
-        const double el = r.elevation + angular_noise_ * gauss_(rng_);
-        const double az = r.azimuth + angular_noise_ * gauss_(rng_) / std::max(std::cos(r.elevation), 0.1);
+        const double cos_el = std::max(std::cos(r.elevation), 0.1), dh = da * cos_el;
+        const double az_sigma = std::sqrt(std::max(0.0, var - dh * dh / 12)) / cos_el;
+        const double el = r.elevation + el_sigma * gauss_(rng_);
+        const double az = r.azimuth + az_sigma * gauss_(rng_);
         p.x = d * std::cos(el) * std::cos(az);
         p.y = d * std::cos(el) * std::sin(az);
         p.z = d * std::sin(el);
@@ -291,7 +309,7 @@ private:
   int slice_ = 0, slices_ = 1;
   int64_t frame_ns_ = 0;           // its first image's time: header stamp and CustomMsg timebase
   int samples_ = 20000, line_count_ = 4, xfer_format_ = 0, downsample_ = 1;
-  double angular_noise_ = 0.0, default_reflectivity_ = 100.0;
+  double range_noise_ = 0.0, angular_noise_ = 0.0, default_reflectivity_ = 100.0;
   std::mt19937 rng_{std::random_device{}()};
   std::normal_distribution<double> gauss_{0.0, 1.0};
   std::string frame_id_;

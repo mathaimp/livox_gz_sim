@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- 12 x 8 m room with a few objects in the Mid-360's view (-7..52 deg from 1 m up) -->
+<!-- 12 x 8 x 2.5 m room (ceiling included) with a few objects in the Mid-360's view (-7..52 deg from 1 m up) -->
 <sdf version="1.9">
   <world name="demo">
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
@@ -43,6 +43,15 @@
         <visual name="e"><pose>6 0 1.25 0 0 0</pose><geometry><box><size>0.2 8 2.5</size></box></geometry></visual>
         <collision name="w"><pose>-6 0 1.25 0 0 0</pose><geometry><box><size>0.2 8 2.5</size></box></geometry></collision>
         <visual name="w"><pose>-6 0 1.25 0 0 0</pose><geometry><box><size>0.2 8 2.5</size></box></geometry></visual>
+        <!-- ceiling: no shadow, so the sun still lights the room, and see-through from the GUI
+             camera; the lidar still hits it -->
+        <collision name="ceiling"><pose>0 0 2.55 0 0 0</pose><geometry><box><size>12.2 8.2 0.1</size></box></geometry></collision>
+        <visual name="ceiling">
+          <pose>0 0 2.55 0 0 0</pose>
+          <geometry><box><size>12.2 8.2 0.1</size></box></geometry>
+          <cast_shadows>false</cast_shadows>
+          <transparency>0.7</transparency>
+        </visual>
       </link>
     </model>
 
