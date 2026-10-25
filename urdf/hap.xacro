@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!-- Livox HAP (TX) with its real (non-repetitive) scan pattern.
+
+       <xacro:include filename="$(find livox_gz_sim)/urdf/hap.xacro"/>
+       <xacro:hap parent="base_link">
+         <origin xyz="..." rpy="..."/>
+       </xacro:hap>
+
+     The origin places the centre of the sensor's bottom face; +X looks out of the
+     window. Geometry from Livox's STEP model (HAP-FINLESS-TX-OUT-20220524): 105 x 131.6
+     x 65 mm with the mounting ears, 1120 g (spec page); point cloud origin O at the
+     centre of the window's front face, 23 mm above the bottom as the user manual gives.
+     FOV 120 x 25 deg, 0.5 m blind zone, 150 m at 10 % reflectivity, 452k points/s at
+     10 Hz (Livox HAP specs and user manual).
+
+     Gazebo: see livox_lidar.xacro (slices, resolution, downsample, xfer_format, reflectivity).
+     The dense image spans the pattern's +-60.25 x +-13.25 deg with margin (7x fewer
+     pixels than the Mid-360's); range noise 2 cm (1 sigma at 20 m) and angular error 0.1
+     deg (1 sigma, datasheet "< 0.1"), the latter kept up to resolution 0.34.
+     Livox's recorded HAP pattern is 2.31 s long (it was cut at 2^20 rows), so it
+     repeats every 23.2 frames where the real one does not. The laser line of a point
+     is not known (line 0). No IMU: the HAP's documentation does not list one. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find livox_gz_sim)/urdf/livox_lidar.xacro"/>
+
+  <xacro:macro name="hap" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 downsample:=1 slices:=1 resolution:=0.2">
+    <joint name="${name}_base_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${name}_base_link"/>
+      <xacro:insert_block name="origin"/>
+    </joint>
+    <link name="${name}_base_link">
+      <visual>
+        <geometry><mesh filename="package://livox_gz_sim/meshes/hap.dae"/></geometry>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0.0325"/>
+        <geometry><box size="0.105 0.1135 0.065"/></geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 0.0325"/>
+        <mass value="1.12"/>
+        <!-- solid box 105 x 113.5 x 65 mm (the housing without the ears) -->
+        <inertia ixx="1.60e-3" iyy="1.42e-3" izz="2.23e-3" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+    </link>
+    <joint name="${name}_frame_joint" type="fixed">
+      <parent link="${name}_base_link"/>
+      <child link="${name}_frame"/>
+      <origin xyz="0.0523 0.0012 0.023"/>
+    </joint>
+    <link name="${name}_frame"/>
+
+    <xacro:livox_lidar_sensor name="${name}" topic="${topic}" xfer_format="${xfer_format}"
+      slices="${slices}" resolution="${resolution}" downsample="${downsample}"
+      pattern="hap.csv" samples="45200" line_count="1"
+      h_min="-60.4" h_max="60.4" v_min="-13.4" v_max="13.4"
+      range_min="0.5" range_max="150.0" range_noise="0.02" angular_noise="0.1"/>
+  </xacro:macro>
+</robot>

@@ -1,11 +1,13 @@
 <?xml version="1.0"?>
-<!-- demo: a Mid-360 on top of a 1 m pole fixed to the world -->
-<robot name="mid360_demo" xmlns:xacro="http://www.ros.org/wiki/xacro">
+<!-- demo: a Livox lidar (model:=mid360 or hap) on top of a 1 m pole fixed to the world -->
+<robot name="livox_demo" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="model" default="mid360"/>
   <xacro:arg name="xfer_format" default="0"/>
   <xacro:arg name="slices" default="1"/>
   <xacro:arg name="resolution" default="0.2"/>
   <xacro:arg name="downsample" default="1"/>
   <xacro:include filename="$(find livox_gz_sim)/urdf/mid360.xacro"/>
+  <xacro:include filename="$(find livox_gz_sim)/urdf/hap.xacro"/>
 
   <link name="world"/>
   <joint name="pole_joint" type="fixed">
@@ -29,8 +31,17 @@
     </inertial>
   </link>
 
-  <xacro:mid360 parent="pole" xfer_format="$(arg xfer_format)" slices="$(arg slices)"
-                resolution="$(arg resolution)" downsample="$(arg downsample)">
-    <origin xyz="0 0 1.0"/>
-  </xacro:mid360>
+  <xacro:if value="${'$(arg model)' == 'mid360'}">
+    <xacro:mid360 parent="pole" xfer_format="$(arg xfer_format)" slices="$(arg slices)"
+                  resolution="$(arg resolution)" downsample="$(arg downsample)">
+      <origin xyz="0 0 1.0"/>
+    </xacro:mid360>
+  </xacro:if>
+  <!-- the HAP looks along +X, at the box and the far wall -->
+  <xacro:if value="${'$(arg model)' == 'hap'}">
+    <xacro:hap parent="pole" xfer_format="$(arg xfer_format)" slices="$(arg slices)"
+               resolution="$(arg resolution)" downsample="$(arg downsample)">
+      <origin xyz="0 0 1.0"/>
+    </xacro:hap>
+  </xacro:if>
 </robot>

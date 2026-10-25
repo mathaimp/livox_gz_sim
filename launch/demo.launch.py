@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: MIT
 
 """
-A Mid-360 on a pole in a small room.
+A Livox lidar on a pole in a small room.
 
-Gazebo, robot_state_publisher, the Livox plugins publishing /livox/lidar and
-/livox/imu, and rviz.
+Gazebo, robot_state_publisher, the Livox plugins publishing /livox/lidar (and
+/livox/imu for the Mid-360), and rviz.
 
-    ros2 launch livox_gz_sim demo.launch.py [gui:=false] [rviz:=false] [xfer_format:=1]
-        [slices:=5] [resolution:=0.4] [downsample:=4]
+    ros2 launch livox_gz_sim demo.launch.py [model:=hap] [gui:=false] [rviz:=false]
+        [xfer_format:=1] [slices:=5] [resolution:=0.4] [downsample:=4]
+
+model: mid360 (default) or hap
 
 xfer_format as livox_ros_driver2: 0 PointCloud2, 1 CustomMsg (rviz cannot show it)
 slices, resolution, downsample: as the mid360 xacro macro (urdf/mid360.xacro)
@@ -32,6 +34,7 @@ def generate_launch_description():
 
     robot_description = ParameterValue(
         Command(['xacro ', os.path.join(share, 'urdf', 'demo.urdf.xacro'),
+                 ' model:=', LaunchConfiguration('model'),
                  ' xfer_format:=', LaunchConfiguration('xfer_format'),
                  ' slices:=', LaunchConfiguration('slices'),
                  ' resolution:=', LaunchConfiguration('resolution'),
@@ -40,6 +43,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument('model', default_value='mid360'),
         DeclareLaunchArgument('gui', default_value='true'),
         DeclareLaunchArgument('rviz', default_value='true'),
         DeclareLaunchArgument('xfer_format', default_value='0'),
@@ -63,7 +67,7 @@ def generate_launch_description():
         Node(
             package='ros_gz_sim',
             executable='create',
-            arguments=['-name', 'mid360_demo', '-topic', 'robot_description'],
+            arguments=['-name', 'livox_demo', '-topic', 'robot_description'],
             output='screen',
         ),
         Node(

@@ -1,7 +1,7 @@
 # Copyright 2026 Mathai Mathew
 # SPDX-License-Identifier: MIT
 
-"""The mid360 xacro macro expands to what the plugins expect."""
+"""The mid360 and hap xacro macros expand to what the plugins expect."""
 import math
 import os
 import xml.etree.ElementTree as ET
@@ -77,3 +77,29 @@ def test_imu():
     assert plugin.get('name') == 'livox_gz_sim::LivoxImu'
     assert plugin.find('topic').text == 'livox/imu'
     assert plugin.find('frame_id').text == 'livox_frame'
+
+
+def test_hap():
+    robot = expand(model='hap')
+    # point cloud origin: the window's front face, 23 mm above the bottom (STEP model, manual)
+    assert joint_xyz(robot, 'livox_frame_joint') == pytest.approx([0.0523, 0.0012, 0.023])
+    assert robot.findall('.//sensor[@type="imu"]') == []
+    lidar = sensor(robot, 'gpu_lidar')
+    params = {e.tag: e.text for e in lidar.find('plugin')}
+    assert params['pattern'] == 'hap.csv'
+    assert params['samples'] == '45200'  # 452k points/s at 10 Hz
+    assert float(params['angular_noise']) == 0.1
+    assert float(lidar.find('lidar/range/min').text) == 0.5
+    assert float(lidar.find('lidar/range/max').text) == 150
+
+
+@pytest.mark.parametrize('slices, resolution, rate, h, v', [
+    (1, 0.2, 10, 605, 135),
+    (10, 0.3, 100, 404, 90),
+])
+def test_hap_slices_resolution(slices, resolution, rate, h, v):
+    lidar = sensor(expand(model='hap', slices=slices, resolution=resolution), 'gpu_lidar')
+    assert float(lidar.find('update_rate').text) == rate
+    scan = lidar.find('lidar/scan')
+    assert int(scan.find('horizontal/samples').text) == h
+    assert int(scan.find('vertical/samples').text) == v

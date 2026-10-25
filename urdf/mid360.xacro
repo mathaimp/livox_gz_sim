@@ -12,25 +12,19 @@
      (the cable connector is on -X). FOV 360 deg x -7..52 deg, 0.1-40 m (10 %
      reflectivity), 200k points/s at 10 Hz.
 
-     Gazebo: a dense gpu_lidar (resolution:=0.2 deg grid) renders a range image and the
-     livox_gz_sim::LivoxLidar plugin samples it along Livox's recorded Mid-360
-     pattern, 20k rays per 10 Hz frame, so coverage builds up over frames as on the
-     real sensor. slices:=n renders n images per frame and stamps each point with its
-     image's time (1: a snapshot, offsets 0; 5: offsets 0, 20, ..., 80 ms, motion skew as on
-     the real sensor, 5x the rendering). The rendering cost is about proportional to
-     slices / resolution^2; the angular error stays 0.15 deg up to a 0.5 deg grid (the
-     plugin adds less jitter on a coarser one). On an RTX 3050 laptop, with the scene alone:
-     slices 1 or 5 at 0.2, 10 at 0.3 or 0.4 run at real time. It publishes as livox_ros_driver2 does, on ${topic} in ${name}_frame:
-       xfer_format 0 = sensor_msgs/PointCloud2 (x y z intensity tag line timestamp)
-                   1 = livox_ros_driver2/CustomMsg (as for FAST-LIO)
-     Reflectivity of a surface: <laser_retro> in its Gazebo visual, on Livox's scale (0-150
-     diffuse %, 151-255 retroreflective); 100 where unset.
+     Gazebo: see livox_lidar.xacro (slices, resolution, downsample, xfer_format, reflectivity).
+     The dense image spans the pattern's -7.2..52.2 deg with margin; range noise 2 cm and
+     angular error 0.15 deg (1 sigma, datasheet), the latter kept up to resolution 0.5. On an
+     RTX 3050 laptop, with the scene alone, slices 1 or 5 at 0.2 and 10 at 0.3 or 0.4 run at
+     real time.
      The built-in IMU, also as the driver: sensor_msgs/Imu on ${imu_topic} at 200 Hz,
      in ${name}_frame (axes aligned with it), acceleration in g. It sits at
      ${name}_imu_link, (11.0, 23.29, -44.12) mm from the point cloud origin (manual),
      so FAST-LIO's extrinsic_T is [-0.011, -0.02329, 0.04412], extrinsic_R identity.
      Needs the world's gz-sim-imu-system. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find livox_gz_sim)/urdf/livox_lidar.xacro"/>
+
   <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 imu_topic:=livox/imu downsample:=1 slices:=1 resolution:=0.2">
     <joint name="${name}_base_joint" type="fixed">
       <parent link="${parent}"/>
@@ -59,59 +53,11 @@
     </joint>
     <link name="${name}_frame"/>
 
-    <gazebo reference="${name}_frame">
-      <sensor name="${name}" type="gpu_lidar">
-        <!-- 10 Hz frames, each from ${slices} rendered image(s) -->
-        <update_rate>${10 * slices}</update_rate>
-        <always_on>true</always_on>
-        <visualize>false</visualize>
-        <!-- the dense image, gz only; the plugin publishes ${topic} -->
-        <topic>${name}/dense_scan</topic>
-        <gz_frame_id>${name}_frame</gz_frame_id>
-        <lidar>
-          <scan>
-            <horizontal>
-              <samples>${int(round(360 / resolution)) + 1}</samples>
-              <min_angle>${-pi}</min_angle>
-              <max_angle>${pi}</max_angle>
-            </horizontal>
-            <!-- covers the pattern's -7.2..52.2 deg -->
-            <vertical>
-              <samples>${int(round(59.8 / resolution)) + 1}</samples>
-              <min_angle>${radians(-7.4)}</min_angle>
-              <max_angle>${radians(52.4)}</max_angle>
-            </vertical>
-          </scan>
-          <range>
-            <min>0.1</min>
-            <max>40.0</max>
-            <resolution>0.001</resolution>
-          </range>
-          <!-- no <noise>: per pixel it is most of the sensor's cost; the plugin adds it -->
-        </lidar>
-        <plugin filename="livox_gz_sim" name="livox_gz_sim::LivoxLidar">
-          <pattern>mid360.csv</pattern>
-          <samples>20000</samples>
-          <!-- 1: each frame is one snapshot, all point offsets 0 (Livox's ROS 1 plugin);
-               n: n images per frame, point offsets 0, 100/n, ... ms, so motion during a frame
-               skews the cloud as on the real sensor; n x the rendering cost -->
-          <slices>${slices}</slices>
-          <line_count>4</line_count>
-          <topic>${topic}</topic>
-          <frame_id>${name}_frame</frame_id>
-          <xfer_format>${xfer_format}</xfer_format>
-          <!-- datasheet range precision 2 cm (1 sigma) at 10 m, angular random error 0.15 deg
-               (1 sigma, including the dense image's pixel quantisation) -->
-          <range_noise>0.02</range_noise>
-          <angular_noise>0.15</angular_noise>
-          <!-- every n-th pattern ray, to save CPU (n = 1: the real 200k points/s) -->
-          <downsample>${downsample}</downsample>
-          <!-- reflectivity (Livox 0-255) comes from the hit visual's <laser_retro>; this is for
-               surfaces without one -->
-          <default_reflectivity>100</default_reflectivity>
-        </plugin>
-      </sensor>
-    </gazebo>
+    <xacro:livox_lidar_sensor name="${name}" topic="${topic}" xfer_format="${xfer_format}"
+      slices="${slices}" resolution="${resolution}" downsample="${downsample}"
+      pattern="mid360.csv" samples="20000" line_count="4"
+      h_min="-180" h_max="180" v_min="-7.4" v_max="52.4"
+      range_min="0.1" range_max="40.0" range_noise="0.02" angular_noise="0.15"/>
 
     <joint name="${name}_imu_joint" type="fixed">
       <parent link="${name}_frame"/>

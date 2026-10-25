@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<!-- The Gazebo part of a Livox lidar, shared by the model macros (mid360.xacro,
+     hap.xacro); use those, not this.
+
+     A dense gpu_lidar (resolution deg grid over the pattern's FOV, azimuth h_min..h_max,
+     elevation v_min..v_max, in deg) renders a range image and the
+     livox_gz_sim::LivoxLidar plugin samples it along Livox's recorded scan pattern,
+     `samples` rays per 10 Hz frame, so coverage builds up over frames as on the real
+     sensor. slices:=n renders n images per frame and stamps each point with its image's
+     time (1: a snapshot, offsets 0; 5: offsets 0, 20, ..., 80 ms, motion skew as on the
+     real sensor, 5x the rendering). The rendering cost is about proportional to
+     slices x FOV / resolution^2; the angular error stays angular_noise as long as
+     resolution / sqrt(12) < angular_noise (the plugin adds less jitter on a coarser grid).
+     It publishes as livox_ros_driver2 does, on ${topic} in ${name}_frame:
+       xfer_format 0 = sensor_msgs/PointCloud2 (x y z intensity tag line timestamp)
+                   1 = livox_ros_driver2/CustomMsg (as for FAST-LIO)
+     Reflectivity of a surface: <laser_retro> in its Gazebo visual, on Livox's scale (0-150
+     diffuse %, 151-255 retroreflective); 100 where unset. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="livox_lidar_sensor"
+               params="name topic xfer_format slices resolution downsample pattern samples line_count
+                       h_min h_max v_min v_max range_min range_max range_noise angular_noise">
+    <gazebo reference="${name}_frame">
+      <sensor name="${name}" type="gpu_lidar">
+        <!-- 10 Hz frames, each from ${slices} rendered image(s) -->
+        <update_rate>${10 * slices}</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <!-- the dense image, gz only; the plugin publishes ${topic} -->
+        <topic>${name}/dense_scan</topic>
+        <gz_frame_id>${name}_frame</gz_frame_id>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>${int(round((h_max - h_min) / resolution)) + 1}</samples>
+              <min_angle>${radians(h_min)}</min_angle>
+              <max_angle>${radians(h_max)}</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>${int(round((v_max - v_min) / resolution)) + 1}</samples>
+              <min_angle>${radians(v_min)}</min_angle>
+              <max_angle>${radians(v_max)}</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>${range_min}</min>
+            <max>${range_max}</max>
+            <resolution>0.001</resolution>
+          </range>
+          <!-- no <noise>: per pixel it is most of the sensor's cost; the plugin adds it -->
+        </lidar>
+        <plugin filename="livox_gz_sim" name="livox_gz_sim::LivoxLidar">
+          <pattern>${pattern}</pattern>
+          <samples>${samples}</samples>
+          <!-- 1: each frame is one snapshot, all point offsets 0 (Livox's ROS 1 plugin);
+               n: n images per frame, point offsets 0, 100/n, ... ms, so motion during a frame
+               skews the cloud as on the real sensor; n x the rendering cost -->
+          <slices>${slices}</slices>
+          <line_count>${line_count}</line_count>
+          <topic>${topic}</topic>
+          <frame_id>${name}_frame</frame_id>
+          <xfer_format>${xfer_format}</xfer_format>
+          <!-- 1 sigma; angular_noise includes the dense image's pixel quantisation -->
+          <range_noise>${range_noise}</range_noise>
+          <angular_noise>${angular_noise}</angular_noise>
+          <!-- every n-th pattern ray, to save CPU (n = 1: the real point rate) -->
+          <downsample>${downsample}</downsample>
+          <!-- reflectivity (Livox 0-255) comes from the hit visual's <laser_retro>; this is for
+               surfaces without one -->
+          <default_reflectivity>100</default_reflectivity>
+        </plugin>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+</robot>
