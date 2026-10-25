@@ -2,6 +2,9 @@
 <!-- demo: a Mid-360 on top of a 1 m pole fixed to the world -->
 <robot name="mid360_demo" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:arg name="xfer_format" default="0"/>
+  <xacro:arg name="slices" default="1"/>
+  <xacro:arg name="resolution" default="0.2"/>
+  <xacro:arg name="downsample" default="1"/>
   <xacro:include filename="$(find livox_gz_sim)/urdf/mid360.xacro"/>
 
   <link name="world"/>
@@ -26,7 +29,8 @@
     </inertial>
   </link>
 
-  <xacro:mid360 parent="pole" xfer_format="$(arg xfer_format)">
+  <xacro:mid360 parent="pole" xfer_format="$(arg xfer_format)" slices="$(arg slices)"
+                resolution="$(arg resolution)" downsample="$(arg downsample)">
     <origin xyz="0 0 1.0"/>
   </xacro:mid360>
 </robot>

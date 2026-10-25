@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(livox_gz_sim)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -39,14 +39,14 @@ install(DIRECTORY launch meshes rviz scan_patterns urdf worlds DESTINATION share
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
+  # files carry an SPDX one-liner, not the full license text ament_copyright wants
+  # (cpplint still checks for the copyright line)
   set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+  # no GPU needed; the Gazebo plugins themselves need one, so they are not tested here
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_xacro test/test_xacro.py)
+  ament_add_pytest_test(test_scan_pattern test/test_scan_pattern.py)
 endif()
 
 ament_package()

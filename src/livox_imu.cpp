@@ -1,3 +1,6 @@
+// Copyright 2026 Mathai Mathew
+// SPDX-License-Identifier: MIT
+
 // Livox built-in IMU for Gazebo Sim, published exactly as livox_ros_driver2 does
 // (Lddc::InitImuMsg): sensor_msgs/Imu in the lidar's frame, angular velocity in
 // rad/s, linear acceleration in g (not m/s^2; FAST-LIO etc. rescale it), no
@@ -9,11 +12,13 @@
 //   </plugin>
 // Rate and noise come from the imu sensor itself.
 
+// protobuf headers first: cpplint takes any <*.h> for a C system header
+#include <gz/msgs/imu.pb.h>
+
 #include <memory>
 #include <string>
 
 #include <gz/common/Console.hh>
-#include <gz/msgs/imu.pb.h>
 // livox_lidar.cpp defines the library's plugin hook
 #define GZ_PLUGIN_REGISTER_MORE_TRANS_UNITS
 #include <gz/plugin/Register.hh>
@@ -29,13 +34,15 @@ namespace livox_gz_sim
 
 constexpr double kGravity = 9.80665;  // m/s^2 per g
 
-class LivoxImu : public gz::sim::System, public gz::sim::ISystemConfigure
+class LivoxImu : public gz::sim::System, public gz::sim::ISystemConfigure,
+  public gz::sim::ISystemReset
 {
 public:
-  void Configure(const gz::sim::Entity &entity, const std::shared_ptr<const sdf::Element> &sdf,
-                 gz::sim::EntityComponentManager &ecm, gz::sim::EventManager &) override
+  void Configure(
+    const gz::sim::Entity & entity, const std::shared_ptr<const sdf::Element> & sdf,
+    gz::sim::EntityComponentManager & ecm, gz::sim::EventManager &) override
   {
-    auto get = [&](const char *key, auto dflt) {
+    auto get = [&](const char * key, auto dflt) {
       return sdf->HasElement(key) ? sdf->Get<decltype(dflt)>(key) : dflt;
     };
     frame_id_ = get("frame_id", std::string("livox_frame"));
@@ -52,12 +59,15 @@ public:
       return;
     }
 
-    if (!rclcpp::ok())
+    if (!rclcpp::ok()) {
       rclcpp::init(0, nullptr);
+    }
     auto name_c = ecm.Component<gz::sim::components::Name>(entity);
     std::string name = name_c ? name_c->Data() : "livox_imu";
     node_ = std::make_shared<rclcpp::Node>("livox_sim_" + name);
-    pub_ = node_->create_publisher<sensor_msgs::msg::Imu>(topic, rclcpp::SensorDataQoS().keep_last(50).reliable());
+    pub_ = node_->create_publisher<sensor_msgs::msg::Imu>(
+      topic,
+      rclcpp::SensorDataQoS().keep_last(50).reliable());
 
     if (!gz_node_.Subscribe(gz_topic, &LivoxImu::OnImu, this)) {
       gzerr << "livox_gz_sim::LivoxImu: cannot subscribe to [" << gz_topic << "]\n";
@@ -66,11 +76,17 @@ public:
     gzmsg << "Livox IMU [" << name << "]: on ROS [" << topic << "] in [" << frame_id_ << "]\n";
   }
 
+  // nothing to reset, but without this Gazebo destroys and reloads the plugin on a
+  // world reset, and the reloaded one never publishes
+  void Reset(const gz::sim::UpdateInfo &, gz::sim::EntityComponentManager &) override {}
+
 private:
-  void OnImu(const gz::msgs::IMU &in)
+  void OnImu(const gz::msgs::IMU & in)
   {
     sensor_msgs::msg::Imu m;
-    m.header.stamp = rclcpp::Time(int64_t(in.header().stamp().sec()) * 1000000000 + in.header().stamp().nsec());
+    m.header.stamp = rclcpp::Time(
+      int64_t(in.header().stamp().sec()) * 1000000000 +
+      in.header().stamp().nsec());
     m.header.frame_id = frame_id_;
     m.angular_velocity.x = in.angular_velocity().x();
     m.angular_velocity.y = in.angular_velocity().y();
@@ -89,5 +105,7 @@ private:
 
 }  // namespace livox_gz_sim
 
-GZ_ADD_PLUGIN(livox_gz_sim::LivoxImu, gz::sim::System, livox_gz_sim::LivoxImu::ISystemConfigure)
+GZ_ADD_PLUGIN(
+  livox_gz_sim::LivoxImu, gz::sim::System, livox_gz_sim::LivoxImu::ISystemConfigure,
+  livox_gz_sim::LivoxImu::ISystemReset)
 GZ_ADD_PLUGIN_ALIAS(livox_gz_sim::LivoxImu, "livox_gz_sim::LivoxImu")
