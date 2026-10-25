@@ -8,9 +8,10 @@ Gazebo, robot_state_publisher, the Livox plugins publishing /livox/lidar (and
 /livox/imu for the Mid-360), and rviz.
 
     ros2 launch livox_gz_sim demo.launch.py [model:=hap] [gui:=false] [rviz:=false]
-        [xfer_format:=1] [slices:=5] [resolution:=0.4] [downsample:=4]
+        [xfer_format:=1] [publish_freq:=20.0] [slices:=5] [resolution:=0.4] [downsample:=4]
 
 model: mid360 (default) or hap
+publish_freq: frames per second, as the driver's (10.0)
 
 xfer_format as livox_ros_driver2: 0 PointCloud2, 1 CustomMsg (rviz cannot show it)
 slices, resolution, downsample: as the mid360 xacro macro (urdf/mid360.xacro)
@@ -36,6 +37,7 @@ def generate_launch_description():
         Command(['xacro ', os.path.join(share, 'urdf', 'demo.urdf.xacro'),
                  ' model:=', LaunchConfiguration('model'),
                  ' xfer_format:=', LaunchConfiguration('xfer_format'),
+                 ' publish_freq:=', LaunchConfiguration('publish_freq'),
                  ' slices:=', LaunchConfiguration('slices'),
                  ' resolution:=', LaunchConfiguration('resolution'),
                  ' downsample:=', LaunchConfiguration('downsample')]),
@@ -47,6 +49,7 @@ def generate_launch_description():
         DeclareLaunchArgument('gui', default_value='true'),
         DeclareLaunchArgument('rviz', default_value='true'),
         DeclareLaunchArgument('xfer_format', default_value='0'),
+        DeclareLaunchArgument('publish_freq', default_value='10.0'),
         DeclareLaunchArgument('slices', default_value='1'),
         DeclareLaunchArgument('resolution', default_value='0.2'),
         DeclareLaunchArgument('downsample', default_value='1'),

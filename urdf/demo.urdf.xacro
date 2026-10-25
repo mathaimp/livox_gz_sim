@@ -3,6 +3,7 @@
 <robot name="livox_demo" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:arg name="model" default="mid360"/>
   <xacro:arg name="xfer_format" default="0"/>
+  <xacro:arg name="publish_freq" default="10.0"/>
   <xacro:arg name="slices" default="1"/>
   <xacro:arg name="resolution" default="0.2"/>
   <xacro:arg name="downsample" default="1"/>
@@ -32,15 +33,15 @@
   </link>
 
   <xacro:if value="${'$(arg model)' == 'mid360'}">
-    <xacro:mid360 parent="pole" xfer_format="$(arg xfer_format)" slices="$(arg slices)"
-                  resolution="$(arg resolution)" downsample="$(arg downsample)">
+    <xacro:mid360 parent="pole" xfer_format="$(arg xfer_format)" publish_freq="$(arg publish_freq)"
+                  slices="$(arg slices)" resolution="$(arg resolution)" downsample="$(arg downsample)">
       <origin xyz="0 0 1.0"/>
     </xacro:mid360>
   </xacro:if>
   <!-- the HAP looks along +X, at the box and the far wall -->
   <xacro:if value="${'$(arg model)' == 'hap'}">
-    <xacro:hap parent="pole" xfer_format="$(arg xfer_format)" slices="$(arg slices)"
-               resolution="$(arg resolution)" downsample="$(arg downsample)">
+    <xacro:hap parent="pole" xfer_format="$(arg xfer_format)" publish_freq="$(arg publish_freq)"
+               slices="$(arg slices)" resolution="$(arg resolution)" downsample="$(arg downsample)">
       <origin xyz="0 0 1.0"/>
     </xacro:hap>
   </xacro:if>

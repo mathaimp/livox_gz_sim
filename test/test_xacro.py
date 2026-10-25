@@ -103,3 +103,16 @@ def test_hap_slices_resolution(slices, resolution, rate, h, v):
     scan = lidar.find('lidar/scan')
     assert int(scan.find('horizontal/samples').text) == h
     assert int(scan.find('vertical/samples').text) == v
+
+
+@pytest.mark.parametrize('model, freq, slices, rate, samples', [
+    ('mid360', 10.0, 1, 10, 20000),
+    ('mid360', 20.0, 5, 100, 10000),
+    ('hap', 10.0, 1, 10, 45200),
+    ('hap', 50.0, 2, 100, 9040),
+])
+def test_publish_freq(model, freq, slices, rate, samples):
+    # a frame (message) is 1 / publish_freq of the point stream; slices images per frame
+    lidar = sensor(expand(model=model, publish_freq=freq, slices=slices), 'gpu_lidar')
+    assert float(lidar.find('update_rate').text) == rate
+    assert int(lidar.find('plugin/samples').text) == samples
