@@ -15,9 +15,9 @@
      Gazebo: see livox_lidar.xacro (publish_freq, slices, resolution, downsample,
      xfer_format, reflectivity).
      The dense image spans the pattern's -7.2..52.2 deg with margin; range noise 2 cm and
-     angular error 0.15 deg (1 sigma, datasheet), the latter kept up to resolution 0.5. On an
-     RTX 3050 laptop, with the scene alone, slices 1 or 5 at 0.2 and 10 at 0.3 or 0.4 run at
-     real time.
+     angular error 0.15 deg (1 sigma, datasheet), the latter kept up to resolution 0.5.
+     Defaults slices 5 (points 0, 20, ..., 80 ms into a frame), resolution 0.4 (empty: the
+     same): 2.7x real time on an RTX 3050 laptop with the demo scene alone (0.2: 1.0x).
      The built-in IMU, also as the driver: sensor_msgs/Imu on ${imu_topic} at 200 Hz,
      in ${name}_frame (axes aligned with it), acceleration in g. It sits at
      ${name}_imu_link, (11.0, 23.29, -44.12) mm from the point cloud origin (manual),
@@ -26,7 +26,8 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:include filename="$(find livox_gz_sim)/urdf/livox_lidar.xacro"/>
 
-  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 publish_freq:=10.0 imu_topic:=livox/imu downsample:=1 slices:=1 resolution:=0.2">
+  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 publish_freq:=10.0 imu_topic:=livox/imu downsample:=1 slices:=5 resolution:=0.4">
+    <xacro:property name="res" value="${float(resolution) if str(resolution).strip() else 0.4}"/>
     <joint name="${name}_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="${name}_base_link"/>
@@ -55,7 +56,7 @@
     <link name="${name}_frame"/>
 
     <xacro:livox_lidar_sensor name="${name}" topic="${topic}" xfer_format="${xfer_format}"
-      publish_freq="${publish_freq}" slices="${slices}" resolution="${resolution}" downsample="${downsample}"
+      publish_freq="${publish_freq}" slices="${slices}" resolution="${res}" downsample="${downsample}"
       pattern="mid360.csv" point_rate="200000" line_count="4"
       h_min="-180" h_max="180" v_min="-7.4" v_max="52.4"
       range_min="0.1" range_max="40.0" range_noise="0.02" angular_noise="0.15"/>

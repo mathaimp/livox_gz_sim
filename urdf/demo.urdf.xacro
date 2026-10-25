@@ -4,8 +4,9 @@
   <xacro:arg name="model" default="mid360"/>
   <xacro:arg name="xfer_format" default="0"/>
   <xacro:arg name="publish_freq" default="10.0"/>
-  <xacro:arg name="slices" default="1"/>
-  <xacro:arg name="resolution" default="0.2"/>
+  <xacro:arg name="slices" default="5"/>
+  <!-- empty: the model's default -->
+  <xacro:arg name="resolution" default=""/>
   <xacro:arg name="downsample" default="1"/>
   <xacro:include filename="$(find livox_gz_sim)/urdf/mid360.xacro"/>
   <xacro:include filename="$(find livox_gz_sim)/urdf/hap.xacro"/>

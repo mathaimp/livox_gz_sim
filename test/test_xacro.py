@@ -37,14 +37,14 @@ def test_frames():
 
 def test_lidar_defaults():
     lidar = sensor(expand(), 'gpu_lidar')
-    assert float(lidar.find('update_rate').text) == 10
+    assert float(lidar.find('update_rate').text) == 50  # 10 Hz frames, 5 slices
     assert lidar.find('lidar/noise') is None  # the plugin adds the noise
     plugin = lidar.find('plugin')
     assert plugin.get('name') == 'livox_gz_sim::LivoxLidar'
     params = {e.tag: e.text for e in plugin}
     assert params['pattern'] == 'mid360.csv'
     assert params['samples'] == '20000'
-    assert params['slices'] == '1'
+    assert params['slices'] == '5'
     assert params['downsample'] == '1'
     assert params['topic'] == 'livox/lidar'
     assert params['frame_id'] == 'livox_frame'
@@ -117,3 +117,14 @@ def test_publish_freq(model, freq, slices, rate, samples):
     lidar = sensor(expand(model=model, publish_freq=freq, slices=slices), 'gpu_lidar')
     assert float(lidar.find('update_rate').text) == rate
     assert int(lidar.find('plugin/samples').text) == samples
+
+
+@pytest.mark.parametrize('model, rate, h, v', [
+    ('mid360', 50, 901, 150),  # 5 slices at 0.4 deg
+    ('hap', 50, 605, 135),     # 5 slices at 0.2 deg
+])
+def test_model_defaults(model, rate, h, v):
+    scan_root = sensor(expand(model=model), 'gpu_lidar')
+    assert float(scan_root.find('update_rate').text) == rate
+    assert int(scan_root.find('lidar/scan/horizontal/samples').text) == h
+    assert int(scan_root.find('lidar/scan/vertical/samples').text) == v
