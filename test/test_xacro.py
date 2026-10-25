@@ -88,6 +88,7 @@ def test_hap():
     params = {e.tag: e.text for e in lidar.find('plugin')}
     assert params['pattern'] == 'hap.csv'
     assert params['samples'] == '45200'  # 452k points/s at 10 Hz
+    assert params['line_count'] == '6'  # livox_ros_driver2 kLineNumberHAP
     assert float(params['angular_noise']) == 0.1
     assert float(lidar.find('lidar/range/min').text) == 0.5
     assert float(lidar.find('lidar/range/max').text) == 150

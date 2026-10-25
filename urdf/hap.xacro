@@ -19,8 +19,8 @@
      pixels than the Mid-360's); range noise 2 cm (1 sigma at 20 m) and angular error 0.1
      deg (1 sigma, datasheet "< 0.1"), the latter kept up to resolution 0.34.
      Livox's recorded HAP pattern is 2.31 s long (it was cut at 2^20 rows), so it
-     repeats every 23.2 frames where the real one does not. The laser line of a point
-     is not known (line 0). No IMU: the HAP's documentation does not list one. -->
+     repeats every 23.2 frames where the real one does not. line = point index % 6, as
+     livox_ros_driver2 numbers the HAP's lines (kLineNumberHAP). No IMU: the HAP's documentation does not list one. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:include filename="$(find livox_gz_sim)/urdf/livox_lidar.xacro"/>
 
@@ -54,7 +54,7 @@
 
     <xacro:livox_lidar_sensor name="${name}" topic="${topic}" xfer_format="${xfer_format}"
       publish_freq="${publish_freq}" slices="${slices}" resolution="${resolution}" downsample="${downsample}"
-      pattern="hap.csv" point_rate="452000" line_count="1"
+      pattern="hap.csv" point_rate="452000" line_count="6"
       h_min="-60.4" h_max="60.4" v_min="-13.4" v_max="13.4"
       range_min="0.5" range_max="150.0" range_noise="0.02" angular_noise="0.1"/>
   </xacro:macro>
