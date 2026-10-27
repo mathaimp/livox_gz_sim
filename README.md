@@ -5,6 +5,12 @@ pattern, realistic timing and noise, and output that matches what
 [`livox_ros_driver2`](https://github.com/Livox-SDK/livox_ros_driver2) publishes. The same
 LIO / SLAM stack (e.g. FAST-LIO) can run in simulation and on the robot.
 
+![FAST-LIO mapping the Gazebo Depot with a simulated HAP](docs/hap_fastlio.webp)
+
+*A HAP and an IMU on a cart driven through the [Depot](https://app.gazebosim.org/OpenRobotics/fuel/models/Depot)
+world, mapped by unmodified [FAST-LIO](https://github.com/hku-mars/FAST_LIO) (3× speed). Over
+the 47 m drive the odometry stays within 0.2 m of ground truth.*
+
 | Model | FOV | Points/s | Range | IMU |
 |---|---|---|---|---|
 | **Mid-360** | 360° × −7…52° | 200k | 0.1–40 m | ✓ (ICM-40609) |
