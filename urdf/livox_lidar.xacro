@@ -20,7 +20,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:macro name="livox_lidar_sensor"
                params="name topic xfer_format publish_freq slices resolution downsample pattern point_rate line_count
-                       h_min h_max v_min v_max range_min range_max range_noise angular_noise">
+                       h_min h_max v_min v_max range_min range_max range_noise angular_noise range_10:=0 range_80:=0 range_noise_near:=0 false_alarm_rate:=0">
     <gazebo reference="${name}_frame">
       <sensor name="${name}" type="gpu_lidar">
         <!-- ${publish_freq} Hz frames, each from ${slices} rendered image(s) -->
@@ -64,12 +64,21 @@
           <xfer_format>${xfer_format}</xfer_format>
           <!-- 1 sigma; angular_noise includes the dense image's pixel quantisation -->
           <range_noise>${range_noise}</range_noise>
+          <!-- sigma at near_dist and closer, linear to range_noise at far_dist (0: constant) -->
+          <range_noise_near>${range_noise_near}</range_noise_near>
+          <near_dist>0.2</near_dist>
+          <far_dist>10</far_dist>
+          <false_alarm_rate>${false_alarm_rate}</false_alarm_rate>
           <angular_noise>${angular_noise}</angular_noise>
           <!-- every n-th pattern ray, to save CPU (n = 1: the real point rate) -->
           <downsample>${downsample}</downsample>
           <!-- reflectivity (Livox 0-255) comes from the hit visual's <laser_retro>; this is for
                surfaces without one -->
           <default_reflectivity>100</default_reflectivity>
+          <!-- max range at 10 % / 80 % reflectivity (0: range_max for every surface);
+               range_max above must be the larger -->
+          <range_10>${range_10}</range_10>
+          <range_80>${range_80}</range_80>
         </plugin>
       </sensor>
     </gazebo>

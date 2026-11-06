@@ -59,7 +59,8 @@
       publish_freq="${publish_freq}" slices="${slices}" resolution="${res}" downsample="${downsample}"
       pattern="mid360.csv" point_rate="200000" line_count="4"
       h_min="-180" h_max="180" v_min="-7.4" v_max="52.4"
-      range_min="0.1" range_max="40.0" range_noise="0.02" angular_noise="0.15"/>
+      range_min="0.1" range_max="70.0" range_noise="0.02" angular_noise="0.15"
+      range_10="40" range_80="70" range_noise_near="0.03" false_alarm_rate="1e-4"/>
 
     <joint name="${name}_imu_joint" type="fixed">
       <parent link="${name}_frame"/>

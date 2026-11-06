@@ -28,14 +28,25 @@
 //     <line_count>4</line_count>         laser lines (line = pattern index % line_count)
 //     <topic>livox/lidar</topic>  <frame_id>livox_frame</frame_id>
 //     <xfer_format>0</xfer_format>       as the driver: 0 PointCloud2, 1 CustomMsg
-//     <range_noise>0.02</range_noise>    m, 1 sigma, gaussian (Mid-360: 0.02 at 10 m)
+//     <range_noise>0.02</range_noise>    m, 1 sigma, gaussian; at far_dist and beyond
+//     <range_noise_near>0.03</range_noise_near>  m, 1 sigma at near_dist and closer, linear between
+//                                        (0: range_noise everywhere; Mid-360: 0.03 at 0.2 m, 0.02 at 10 m)
+//     <near_dist>0.2</near_dist>  <far_dist>10</far_dist>  m
+//     <false_alarm_rate>1e-4</false_alarm_rate>  chance per ray of a spurious near return (0: none)
 //     <angular_noise>0.15</angular_noise> deg, 1 sigma per axis, total (Mid-360: 0.15); see below
 //     <downsample>1</downsample>         keep every n-th ray of a frame (as Livox's plugin)
 //     <default_reflectivity>100</default_reflectivity>  for surfaces without <laser_retro>
+//     <range_10>40</range_10>  <range_80>70</range_80>  max range (m) at 10 % / 80 % reflectivity;
+//                                        both > 0 enables the reflectivity-dependent range, else off
 //   </plugin>
 // Reflectivity is the hit visual's <laser_retro>, which the gpu_lidar reports as
 // intensity, on Livox's scale: 0-150 diffuse reflectivity in %, 151-255 retroreflective.
-// Range limits come from the gpu_lidar. Give the gpu_lidar no <noise>: it would draw
+// Range limits come from the gpu_lidar (set its max to the longest range, range_80).
+// With range_10 and range_80 a return is also dropped beyond
+//   range_10 * (reflectivity / 10) ^ k,  k = ln(range_80 / range_10) / ln(8),
+// a power law through the datasheet's two points (Mid-360: 40 m at 10 %, 70 m at 80 %),
+// so dark surfaces vanish at a shorter range than bright ones. Reflectivity is capped at
+// 100 % here (retroreflectors are not modelled). Give the gpu_lidar no <noise>: it would draw
 // it for every pixel of the dense image, the bulk of the sensor's cost, while the
 // plugin adds range noise only to the rays it uses.
 //
@@ -108,9 +119,18 @@ public:
     frame_id_ = get("frame_id", std::string("livox_frame"));
     xfer_format_ = get("xfer_format", 0);
     range_noise_ = std::max(0.0, get("range_noise", 0.0));
+    range_noise_near_ = std::max(0.0, get("range_noise_near", 0.0));
+    near_dist_ = get("near_dist", 0.2);
+    far_dist_ = std::max(near_dist_ + 1e-3, get("far_dist", 10.0));
+    false_alarm_ = std::clamp(get("false_alarm_rate", 0.0), 0.0, 1.0);
     angular_noise_ = get("angular_noise", 0.0) * M_PI / 180.0;
     downsample_ = std::max(1, get("downsample", 1));
     default_reflectivity_ = std::clamp(get("default_reflectivity", 100.0), 0.0, 255.0);
+    const double range_10 = get("range_10", 0.0), range_80 = get("range_80", 0.0);
+    if (range_10 > 0 && range_80 > 0) {
+      range_10_ = range_10;
+      range_exp_ = std::log(range_80 / range_10) / std::log(8.0);
+    }
     std::string topic = get("topic", std::string("livox/lidar"));
 
     // the gpu_lidar's own gz topic carries the dense image
@@ -237,12 +257,35 @@ private:
         continue;  // outside the rendered image (should not happen for a matching gpu_lidar)
       }
       const int px = row * w + col;
-      double d = ranges[px];
-      if (!std::isfinite(d) || d < rmin || d > rmax) {
-        continue;  // no return: the driver publishes nothing for it either
+      double d, refl;
+      if (false_alarm_ > 0 && uniform_(rng_) < false_alarm_) {
+        // a spurious near return: random range up to the 10 % range, low reflectivity (0-9)
+        const double fa_max = std::min(rmax, range_10_ > 0 ? range_10_ : rmax);
+        d = rmin + uniform_(rng_) * std::max(0.0, fa_max - rmin);
+        refl = std::floor(uniform_(rng_) * 10.0);
+      } else {
+        d = ranges[px];
+        if (!std::isfinite(d) || d < rmin || d > rmax) {
+          continue;  // no return: the driver publishes nothing for it either
+        }
+        const double retro = has_intensity ? scan.intensities(px) : 0.0;
+        // the render target returns the retro value slightly off (199.98 for 200): round
+        refl = std::round(retro > 0 ? std::min(retro, 255.0) : default_reflectivity_);
+        if (range_10_ > 0 &&
+          d > range_10_ * std::pow(std::clamp(refl, 1.0, 100.0) / 10.0, range_exp_))
+        {
+          continue;  // too dark to be seen this far
+        }
       }
-      if (range_noise_ > 0) {
-        d += range_noise_ * gauss_(rng_);
+      // sigma: range_noise_ at far_dist_ and beyond, range_noise_near_ at near_dist_ and
+      // closer, linear between (range_noise_near_ 0: range_noise_ everywhere)
+      double sigma = range_noise_;
+      if (range_noise_near_ > 0) {
+        const double t = std::clamp((d - near_dist_) / (far_dist_ - near_dist_), 0.0, 1.0);
+        sigma = range_noise_near_ + t * (range_noise_ - range_noise_near_);
+      }
+      if (sigma > 0) {
+        d += sigma * gauss_(rng_);
       }
       LivoxPoint p;
       if (angular_noise_ > 0) {
@@ -259,12 +302,7 @@ private:
         p.y = d * r.cy;
         p.z = d * r.sz;
       }
-      const double retro = has_intensity ? scan.intensities(px) : 0.0;
-      // the render target returns the retro value slightly off (199.98 for 200): round
-      p.reflectivity = static_cast<float>(std::round(
-          retro > 0 ? std::min(
-            retro,
-            255.0) : default_reflectivity_));
+      p.reflectivity = static_cast<float>(refl);
       p.tag = 0;                // "normal point"
       p.line = static_cast<uint8_t>(i % line_count_);
       p.timestamp = static_cast<double>(stamp_ns);  // when this image was taken
@@ -348,8 +386,11 @@ private:
   int64_t last_ns_ = 0;            // the previous image's time, to notice resets
   int samples_ = 20000, line_count_ = 4, xfer_format_ = 0, downsample_ = 1;
   double range_noise_ = 0.0, angular_noise_ = 0.0, default_reflectivity_ = 100.0;
+  double range_10_ = 0.0, range_exp_ = 0.0;  // reflectivity-dependent max range (0: off)
+  double range_noise_near_ = 0.0, near_dist_ = 0.2, far_dist_ = 10.0, false_alarm_ = 0.0;
   std::mt19937 rng_{std::random_device{}()};
   std::normal_distribution<double> gauss_{0.0, 1.0};
+  std::uniform_real_distribution<double> uniform_{0.0, 1.0};
   std::string frame_id_;
   std::mutex mutex_;
   rclcpp::Node::SharedPtr node_;

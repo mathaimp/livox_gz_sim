@@ -50,6 +50,11 @@ def test_lidar_defaults():
     assert params['frame_id'] == 'livox_frame'
     assert float(params['range_noise']) == 0.02
     assert float(params['angular_noise']) == 0.15
+    assert float(params['range_10']) == 40  # 40 m at 10 %, 70 m at 80 % reflectivity
+    assert float(params['range_80']) == 70
+    assert float(params['range_noise_near']) == 0.03  # 3 cm at 0.2 m to 2 cm at 10 m
+    assert float(params['false_alarm_rate']) == 1e-4
+    assert float(lidar.find('lidar/range/max').text) == 70
 
 
 @pytest.mark.parametrize('slices, resolution, rate, h, v', [

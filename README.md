@@ -13,7 +13,7 @@ the 47 m drive the odometry stays within 0.2 m of ground truth.*
 
 | Model | FOV | Points/s | Range | IMU |
 |---|---|---|---|---|
-| **Mid-360** | 360° × −7…52° | 200k | 0.1–40 m | ✓ (ICM-40609) |
+| **Mid-360** | 360° × −7…52° | 200k | 0.1–40 m (70 m at 80 %) | ✓ (ICM-40609) |
 | **HAP (TX)** | 120° × 25° | 452k | 0.5–150 m | — |
 
 ![Mid-360 and HAP models](docs/models.jpg)
@@ -138,6 +138,12 @@ export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:$HOME/lidar_ws/install/livox_g
 
 Give surfaces a reflectivity with `<laser_retro>` in their visual (0–150 diffuse %,
 151–255 retroreflective); surfaces without one read 100.
+The Mid-360's range follows the surface: a return is kept only within
+`40 m × (reflectivity / 10)^0.27` (40 m at 10 %, 70 m at 80 %, the datasheet), so dark
+surfaces drop out sooner (`range_10` / `range_80` in the plugin; off if unset).
+Range noise is 3 cm at 0.2 m falling linearly to 2 cm at 10 m (`range_noise_near`, `range_noise`),
+and 1 ray in 10 000 returns a spurious near point of low reflectivity (`false_alarm_rate`); both
+are off unless set (Mid-360 only; the HAP keeps a constant 2 cm).
 
 ## Output
 
