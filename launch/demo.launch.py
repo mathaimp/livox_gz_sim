@@ -16,6 +16,8 @@ publish_freq: frames per second, as the driver's (10.0)
 xfer_format as livox_ros_driver2: 0 PointCloud2, 1 CustomMsg (rviz cannot show it)
 slices, resolution, downsample: as the model macros (urdf/mid360.xacro, urdf/hap.xacro);
     defaults 5 slices, the model's resolution
+noise: false turns all sensor noise off; range_noise (m), range_noise_near (m), angular_noise (deg)
+and false_alarm_rate override the model's datasheet values (empty: the default)
 """
 import os
 
@@ -41,7 +43,12 @@ def generate_launch_description():
                  ' publish_freq:=', LaunchConfiguration('publish_freq'),
                  ' slices:=', LaunchConfiguration('slices'),
                  ' resolution:=', LaunchConfiguration('resolution'),
-                 ' downsample:=', LaunchConfiguration('downsample')]),
+                 ' downsample:=', LaunchConfiguration('downsample'),
+                 ' noise:=', LaunchConfiguration('noise'),
+                 ' range_noise:=', LaunchConfiguration('range_noise'),
+                 ' range_noise_near:=', LaunchConfiguration('range_noise_near'),
+                 ' angular_noise:=', LaunchConfiguration('angular_noise'),
+                 ' false_alarm_rate:=', LaunchConfiguration('false_alarm_rate')]),
         value_type=str,
     )
 
@@ -54,6 +61,11 @@ def generate_launch_description():
         DeclareLaunchArgument('slices', default_value='5'),
         DeclareLaunchArgument('resolution', default_value=''),
         DeclareLaunchArgument('downsample', default_value='1'),
+        DeclareLaunchArgument('noise', default_value='true'),
+        DeclareLaunchArgument('range_noise', default_value=''),
+        DeclareLaunchArgument('range_noise_near', default_value=''),
+        DeclareLaunchArgument('angular_noise', default_value=''),
+        DeclareLaunchArgument('false_alarm_rate', default_value=''),
         # the server resolves package://livox_gz_sim/meshes/... through this
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.dirname(share)),
         IncludeLaunchDescription(

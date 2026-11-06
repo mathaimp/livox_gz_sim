@@ -81,6 +81,8 @@ ros2 launch livox_gz_sim demo.launch.py gui:=false rviz:=false xfer_format:=1
 | `slices` | `5` | rendered images per frame |
 | `resolution` | model's | dense image grid, deg |
 | `downsample` | `1` | keep every n-th ray |
+| `noise` | `true` | `false` turns all sensor noise off (range, angular, false alarms) |
+| `range_noise`, `range_noise_near`, `angular_noise`, `false_alarm_rate` | model's | override a datasheet value (m, m, deg, per ray); empty: the default |
 
 Clouds from the demo, coloured by reflectivity. The Mid-360's
 non-repetitive pattern fills in over frames:
@@ -121,6 +123,8 @@ The `origin` places the **centre of the sensor's bottom face**. Each macro creat
 | `slices` | `5` | images per frame; points are stamped with their image's time |
 | `resolution` | `0.4` (Mid-360), `0.2` (HAP) | dense image grid, deg (empty: the default) |
 | `downsample` | `1` | keep every n-th ray, to save CPU |
+| `noise` | `true` | `false` turns all sensor noise off (range, angular, false alarms) |
+| `range_noise`, `range_noise_near`, `angular_noise`, `false_alarm_rate` | Mid-360: 0.02 m, 0.03 m, 0.15°, 1e-4; HAP: 0.02 m, 0, 0.1°, 0 | override a datasheet value (empty: the default); `range_noise_near` is the sigma at 0.2 m, falling to `range_noise` at 10 m |
 
 The world needs the sensor systems, and Gazebo must find the meshes:
 

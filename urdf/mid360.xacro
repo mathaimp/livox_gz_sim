@@ -26,8 +26,14 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:include filename="$(find livox_gz_sim)/urdf/livox_lidar.xacro"/>
 
-  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 publish_freq:=10.0 imu_topic:=livox/imu downsample:=1 slices:=5 resolution:=0.4">
+  <xacro:macro name="mid360" params="parent *origin name:=livox topic:=livox/lidar xfer_format:=0 publish_freq:=10.0 imu_topic:=livox/imu downsample:=1 slices:=5 resolution:=0.4 noise:=true range_noise:='' range_noise_near:='' angular_noise:='' false_alarm_rate:=''">
     <xacro:property name="res" value="${float(resolution) if str(resolution).strip() else 0.4}"/>
+    <!-- noise:=false turns all sensor noise off; the others override a datasheet value (empty: default) -->
+    <xacro:property name="noise_on" value="${str(noise).strip().lower() not in ('false', '0')}"/>
+    <xacro:property name="rn_far" value="${float(range_noise) if str(range_noise).strip() else 0.02}"/>
+    <xacro:property name="rn_near" value="${float(range_noise_near) if str(range_noise_near).strip() else 0.03}"/>
+    <xacro:property name="ang_n" value="${float(angular_noise) if str(angular_noise).strip() else 0.15}"/>
+    <xacro:property name="fa_rate" value="${float(false_alarm_rate) if str(false_alarm_rate).strip() else 1e-4}"/>
     <joint name="${name}_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="${name}_base_link"/>
@@ -59,8 +65,9 @@
       publish_freq="${publish_freq}" slices="${slices}" resolution="${res}" downsample="${downsample}"
       pattern="mid360.csv" point_rate="200000" line_count="4"
       h_min="-180" h_max="180" v_min="-7.4" v_max="52.4"
-      range_min="0.1" range_max="70.0" range_noise="0.02" angular_noise="0.15"
-      range_10="40" range_80="70" range_noise_near="0.03" false_alarm_rate="1e-4"/>
+      range_min="0.1" range_max="70.0" range_noise="${rn_far if noise_on else 0}" angular_noise="${ang_n if noise_on else 0}"
+      range_10="40" range_80="70" range_noise_near="${rn_near if noise_on else 0}"
+      false_alarm_rate="${fa_rate if noise_on else 0}"/>
 
     <joint name="${name}_imu_joint" type="fixed">
       <parent link="${name}_frame"/>

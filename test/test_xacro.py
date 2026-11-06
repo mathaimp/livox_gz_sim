@@ -133,3 +133,31 @@ def test_model_defaults(model, rate, h, v):
     assert float(scan_root.find('update_rate').text) == rate
     assert int(scan_root.find('lidar/scan/horizontal/samples').text) == h
     assert int(scan_root.find('lidar/scan/vertical/samples').text) == v
+
+
+def noise_params(**args):
+    params = {e.tag: float(e.text) for e in sensor(expand(**args), 'gpu_lidar').find('plugin')
+              if e.tag in ('range_noise', 'range_noise_near', 'angular_noise', 'false_alarm_rate')}
+    return params
+
+
+@pytest.mark.parametrize('model, expected', [
+    ('mid360', dict(range_noise=0.02, range_noise_near=0.03, angular_noise=0.15,
+                    false_alarm_rate=1e-4)),
+    ('hap', dict(range_noise=0.02, range_noise_near=0, angular_noise=0.1, false_alarm_rate=0)),
+])
+def test_noise_defaults(model, expected):
+    assert noise_params(model=model) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize('model', ['mid360', 'hap'])
+@pytest.mark.parametrize('off', ['false', 'False', '0'])
+def test_noise_off(model, off):
+    assert all(v == 0 for v in noise_params(model=model, noise=off).values())
+
+
+def test_noise_overrides():
+    got = noise_params(range_noise=0.05, angular_noise=0.3, false_alarm_rate=1e-3)
+    assert got == pytest.approx(dict(range_noise=0.05, range_noise_near=0.03,
+                                     angular_noise=0.3, false_alarm_rate=1e-3))
+    assert all(v == 0 for v in noise_params(noise='false', range_noise=0.05).values())

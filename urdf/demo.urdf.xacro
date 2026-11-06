@@ -8,6 +8,12 @@
   <!-- empty: the model's default -->
   <xacro:arg name="resolution" default=""/>
   <xacro:arg name="downsample" default="1"/>
+  <xacro:arg name="noise" default="true"/>
+  <!-- empty: the model's datasheet value -->
+  <xacro:arg name="range_noise" default=""/>
+  <xacro:arg name="range_noise_near" default=""/>
+  <xacro:arg name="angular_noise" default=""/>
+  <xacro:arg name="false_alarm_rate" default=""/>
   <xacro:include filename="$(find livox_gz_sim)/urdf/mid360.xacro"/>
   <xacro:include filename="$(find livox_gz_sim)/urdf/hap.xacro"/>
 
@@ -35,14 +41,18 @@
 
   <xacro:if value="${'$(arg model)' == 'mid360'}">
     <xacro:mid360 parent="pole" xfer_format="$(arg xfer_format)" publish_freq="$(arg publish_freq)"
-                  slices="$(arg slices)" resolution="$(arg resolution)" downsample="$(arg downsample)">
+                  slices="$(arg slices)" resolution="$(arg resolution)" downsample="$(arg downsample)"
+                  noise="$(arg noise)" range_noise="$(arg range_noise)" range_noise_near="$(arg range_noise_near)"
+                  angular_noise="$(arg angular_noise)" false_alarm_rate="$(arg false_alarm_rate)">
       <origin xyz="0 0 1.0"/>
     </xacro:mid360>
   </xacro:if>
   <!-- the HAP looks along +X, at the box and the far wall -->
   <xacro:if value="${'$(arg model)' == 'hap'}">
     <xacro:hap parent="pole" xfer_format="$(arg xfer_format)" publish_freq="$(arg publish_freq)"
-               slices="$(arg slices)" resolution="$(arg resolution)" downsample="$(arg downsample)">
+               slices="$(arg slices)" resolution="$(arg resolution)" downsample="$(arg downsample)"
+                  noise="$(arg noise)" range_noise="$(arg range_noise)" range_noise_near="$(arg range_noise_near)"
+                  angular_noise="$(arg angular_noise)" false_alarm_rate="$(arg false_alarm_rate)">
       <origin xyz="0 0 1.0"/>
     </xacro:hap>
   </xacro:if>
